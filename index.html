@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insurance Run Alert — @RBIAgent</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a2e; min-height: 100vh; }
+header { background: #081b33; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-dot { width: 10px; height: 10px; background: #cc0000; border-radius: 50%; }
+.logo h1 { font-size: 17px; font-weight: 600; }
+.logo span { font-size: 12px; color: rgba(255,255,255,0.5); margin-left: 4px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.refresh-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+.refresh-btn:hover { background: rgba(255,255,255,0.2); }
+.last-updated { font-size: 12px; color: rgba(255,255,255,0.4); }
+.status-bar { background: #0a2240; border-top: 1px solid rgba(255,255,255,0.08); padding: 8px 24px; display: flex; align-items: center; gap: 8px; }
+.pulse { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
+.pulse.idle { background: #888; animation: none; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.status-text { font-size: 12px; color: rgba(255,255,255,0.55); }
+main { padding: 24px; max-width: 900px; margin: 0 auto; }
+.section-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #888; margin-bottom: 12px; }
+.alert-section { margin-bottom: 28px; }
+.alert-card { background: white; border-radius: 12px; border: 2px solid #cc0000; padding: 18px 20px; margin-bottom: 12px; }
+.alert-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.alert-badge { background: #cc0000; color: white; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+.alert-inning { font-size: 12px; color: #666; }
+.alert-matchup { font-size: 18px; font-weight: 700; color: #081b33; margin-bottom: 4px; }
+.alert-score { font-size: 14px; color: #444; margin-bottom: 8px; }
+.alert-play { font-size: 13px; color: #555; background: #f9f9f9; padding: 8px 12px; border-radius: 8px; border-left: 3px solid #cc0000; margin-bottom: 14px; line-height: 1.5; }
+.post-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.post-btn { padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #ddd; background: white; color: #333; }
+.post-btn:hover { background: #f0f0f0; }
+.post-btn.primary { background: #081b33; color: white; border-color: #081b33; }
+.games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.game-card { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 14px 16px; }
+.game-teams { font-size: 13px; color: #666; margin-bottom: 4px; }
+.game-score { font-size: 22px; font-weight: 700; color: #081b33; margin-bottom: 4px; }
+.game-status { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
+.live-dot { width: 6px; height: 6px; background: #22c55e; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
+.empty-state { text-align: center; padding: 48px 24px; color: #aaa; }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state p { font-size: 15px; }
+.empty-state small { font-size: 13px; display: block; margin-top: 6px; }
+.post-draft { background: white; border-radius: 10px; border: 1px solid #e5e7eb; padding: 16px 18px; margin-top: 16px; display: none; }
+.post-draft.visible { display: block; }
+.draft-label { font-size: 11px; font-weight: 600; color: #888; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 8px; }
+.draft-text { font-size: 14px; color: #222; line-height: 1.6; background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; white-space: pre-wrap; }
+.draft-actions { display: flex; gap: 8px; }
+.draft-copy { padding: 8px 16px; background: #081b33; color: white; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
+.draft-close { padding: 8px 14px; background: white; color: #666; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; cursor: pointer; }
+.loading { text-align: center; padding: 32px; color: #888; font-size: 14px; }
+.spinner { width: 24px; height: 24px; border: 2px solid #e5e7eb; border-top-color: #cc0000; border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-msg { background: #fff5f5; border: 1px solid #fecaca; border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #991b1b; margin-bottom: 16px; }
+footer { text-align: center; padding: 20px; font-size: 12px; color: #aaa; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <h1>Insurance Run Alert <span>@RBIAgent</span></h1>
+  </div>
+  <div class="header-right">
+    <span class="last-updated" id="lastUpdated">Not yet loaded</span>
+    <button class="refresh-btn" onclick="loadGames()">Refresh</button>
+  </div>
+</header>
+<div class="status-bar">
+  <div class="pulse idle" id="statusDot"></div>
+  <span class="status-text" id="statusText">Click Refresh to load live games</span>
+</div>
+<main>
+  <div id="errorArea"></div>
+  <div class="alert-section" id="alertSection" style="display:none">
+    <div class="section-label">Insurance run alerts</div>
+    <div id="alertCards"></div>
+  </div>
+  <div id="liveSection">
+    <div class="section-label">Today's games</div>
+    <div id="gamesArea">
+      <div class="empty-state">
+        <div class="icon">⚾</div>
+        <p>No games loaded yet</p>
+        <small>Click Refresh to pull live MLB data</small>
+      </div>
+    </div>
+  </div>
+  <div class="post-draft" id="postDraft">
+    <div class="draft-label">Draft post</div>
+    <div class="draft-text" id="draftText"></div>
+    <div class="draft-actions">
+      <button class="draft-copy" onclick="copyDraft()">Copy to clipboard</button>
+      <button class="draft-close" onclick="closeDraft()">Close</button>
+    </div>
+  </div>
+</main>
+<footer>#InsuranceRun &nbsp;|&nbsp; @RBIAgent &nbsp;|&nbsp; Powered by MLB Stats API</footer>
+<script>
+var MLB_SCHEDULE = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=linescore&limit=20';
+var MLB_LIVE = 'https://statsapi.mlb.com/api/v1.1/game/GAMEPK/feed/live';
+var RIVALS = ['Chicago Cubs','Cincinnati Reds','New York Yankees','Los Angeles Dodgers'];
+var CARDINALS = 'St. Louis Cardinals';
+var alertedKeys = {};
+var allGames = [];
+
+function setStatus(text, live) {
+  document.getElementById('statusText').textContent = text;
+  document.getElementById('statusDot').className = live ? 'pulse' : 'pulse idle';
+}
+function showError(msg) { document.getElementById('errorArea').innerHTML = '<div class="error-msg">' + msg + '</div>'; }
+function clearError() { document.getElementById('errorArea').innerHTML = ''; }
+
+function getETDate(offset) {
+  var d = new Date();
+  d.setDate(d.getDate() + (offset || 0));
+  var s = d.toLocaleDateString('en-US', {timeZone:'America/New_York', year:'numeric', month:'2-digit', day:'2-digit'});
+  var p = s.split('/');
+  return p[2] + '-' + p[0] + '-' + p[1];
+}
+
+function fetchJ(url) { return fetch(url).then(function(r){ return r.json(); }); }
+
+function allGamesFromData(data) {
+  return (data.dates || []).reduce(function(a, d){ return a.concat(d.games || []); }, []);
+}
+
+function loadGames() {
+  clearError();
+  setStatus('Loading live games...', true);
+  document.getElementById('gamesArea').innerHTML = '<div class="loading"><div class="spinner"></div>Fetching MLB data...</div>';
+  var today = getETDate(0);
+  var yesterday = getETDate(-1);
+  Promise.all([
+    fetchJ(MLB_SCHEDULE + '&date=' + today),
+    fetchJ(MLB_SCHEDULE + '&date=' + yesterday)
+  ]).then(function(res) {
+    var todayGames = allGamesFromData(res[0]);
+    var yestLive = allGamesFromData(res[1]).filter(function(g){ return g.status.abstractGameState === 'Live'; });
+    allGames = yestLive.concat(todayGames);
+    document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    if (!allGames.length) {
+      document.getElementById('gamesArea').innerHTML = '<div class="empty-state"><div class="icon">⚾</div><p>No games today</p><small>Check back on a game day!</small></div>';
+      setStatus('No games scheduled today', false);
+      return;
+    }
+    var live = allGames.filter(function(g){ return g.status.abstractGameState === 'Live'; });
+    setStatus(live.length > 0 ? live.length + ' game(s) in progress' : 'No live games — ' + allGames.length + ' game(s) today', live.length > 0);
+    renderGames(allGames);
+    live.forEach(function(g){ checkInsuranceRun(g); });
+  }).catch(function(e){
+    showError('Could not load MLB data. Try refreshing. (' + e.message + ')');
+    setStatus('Error loading data', false);
+    document.getElementById('gamesArea').innerHTML = '<div class="empty-state"><div class="icon">⚾</div><p>Could not load games</p></div>';
+  });
+}
+
+function renderGames(games) {
+  var html = '<div class="games-grid">';
+  games.forEach(function(g) {
+    var away = g.teams.away.team.name;
+    var home = g.teams.home.team.name;
+    var as = g.teams.away.score !== undefined ? g.teams.away.score : '-';
+    var hs = g.teams.home.score !== undefined ? g.teams.home.score : '-';
+    var state = g.status.abstractGameState;
+    var half = g.linescore ? (g.linescore.inningHalf || '') : '';
+    var inn = g.linescore ? (g.linescore.currentInningOrdinal || '') : '';
+    html += '<div class="game-card"><div class="game-teams">' + away + ' @ ' + home + '</div>';
+    html += '<div class="game-score">' + as + ' &mdash; ' + hs + '</div>';
+    html += '<div class="game-status">';
+    if (state === 'Live') html += '<span class="live-dot"></span>' + half + ' ' + inn;
+    else if (state === 'Final') html += 'Final';
+    else html += g.status.detailedState;
+    html += '</div></div>';
+  });
+  html += '</div>';
+  document.getElementById('gamesArea').innerHTML = html;
+}
+
+function checkInsuranceRun(game) {
+  fetchJ(MLB_LIVE.replace('GAMEPK', game.gamePk)).then(function(data) {
+    var ls = data.liveData.linescore;
+    var inning = ls.currentInning;
+    var half = ls.inningHalf;
+    var hr = ls.teams.home.runs;
+    var ar = ls.teams.away.runs;
+    var hn = data.gameData.teams.home.name;
+    var an = data.gameData.teams.away.name;
+    if (inning < 7) return;
+    var plays = data.liveData.plays.allPlays;
+    if (!plays || !plays.length) return;
+    var last = plays[plays.length - 1];
+    var rbi = last.result.rbi || 0;
+    if (!rbi) return;
+    var scoringHome = half === 'Bottom';
+    var scoringRuns = scoringHome ? hr : ar;
+    var oppRuns = scoringHome ? ar : hr;
+    var leadBefore = (scoringRuns - rbi) - oppRuns;
+    if (leadBefore < 1) return;
+    var key = game.gamePk + '-' + inning + '-' + half;
+    if (alertedKeys[key]) return;
+    alertedKeys[key] = true;
+    var ord = inning === 7 ? '7th' : inning === 8 ? '8th' : inning === 9 ? '9th' : inning + 'th';
+    showAlert({
+      scoringTeam: scoringHome ? hn : an,
+      opposingTeam: scoringHome ? an : hn,
+      scoringRuns: scoringRuns,
+      opposingRuns: oppRuns,
+      inning: ord,
+      half: half,
+      description: last.result.description || 'Run scored'
+    });
+  }).catch(function(){});
+}
+
+function getPostDrafts(info) {
+  var posts = [];
+  var score = info.scoringTeam + ' ' + info.scoringRuns + ', ' + info.opposingTeam + ' ' + info.opposingRuns;
+  if (info.scoringTeam === CARDINALS) {
+    posts.push({label:'Cardinals boost', text:'That\'s what I\'m talking about. Cardinals added an insurance run in the ' + info.inning + ' -- now leading ' + info.scoringRuns + '-' + info.opposingRuns + '. Smart baseball. Smart like having the right coverage. #STLCards #InsuranceRun | @RBIAgent'});
+  }
+  if (RIVALS.indexOf(info.scoringTeam) > -1) {
+    posts.push({label:'Rival jab', text:info.scoringTeam + ' added an insurance run in the ' + info.inning + ' against ' + info.opposingTeam + '. Oof. Some things you cannot protect against... but your home, car, and life? Those you can. #InsuranceRun | @RBIAgent'});
+  }
+  if (RIVALS.indexOf(info.opposingTeam) > -1) {
+    posts.push({label:'Rival giving it up', text:info.opposingTeam + ' just gave up an insurance run in the ' + info.inning + '. As someone in the insurance business: some losses are preventable. Yours do not have to be. #InsuranceRun | @RBIAgent'});
+  }
+  posts.push({label:'Standard alert', text:'Insurance Run Alert! ' + info.scoringTeam + ' scores in the ' + info.inning + ' -- ' + score + '. Just like a solid policy, always have a cushion. #InsuranceRun #MLB | @RBIAgent'});
+  posts.push({label:'Short & punchy', text:'Insurance run. ' + info.inning + ' inning. ' + info.scoringTeam + ' up ' + info.scoringRuns + '-' + info.opposingRuns + '. Baseball gets it. Do you? #InsuranceRun | @RBIAgent'});
+  return posts;
+}
+
+function showAlert(info) {
+  document.getElementById('alertSection').style.display = 'block';
+  var posts = getPostDrafts(info);
+  var btnHtml = '';
+  for (var i = 0; i < posts.length; i++) {
+    btnHtml += '<button class="post-btn' + (i===0?' primary':'') + '" data-idx="' + i + '" onclick="showDraft(this)">' + posts[i].label + '</button>';
+  }
+  var card = document.createElement('div');
+  card.className = 'alert-card';
+  card._posts = posts;
+  card.innerHTML =
+    '<div class="alert-header"><span class="alert-badge">Insurance Run Alert</span><span class="alert-inning">' + info.half + ' of the ' + info.inning + '</span></div>' +
+    '<div class="alert-matchup">' + info.scoringTeam + ' vs. ' + info.opposingTeam + '</div>' +
+    '<div class="alert-score">Score: ' + info.scoringTeam + ' ' + info.scoringRuns + ' &mdash; ' + info.opposingTeam + ' ' + info.opposingRuns + '</div>' +
+    '<div class="alert-play">' + info.description + '</div>' +
+    '<div class="post-buttons">' + btnHtml + '</div>';
+  var ac = document.getElementById('alertCards');
+  ac.insertBefore(card, ac.firstChild);
+}
+
+function showDraft(btn) {
+  var card = btn.parentElement.parentElement;
+  var idx = parseInt(btn.getAttribute('data-idx'));
+  document.getElementById('draftText').textContent = card._posts[idx].text;
+  var draft = document.getElementById('postDraft');
+  draft.classList.add('visible');
+  draft.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function closeDraft() { document.getElementById('postDraft').classList.remove('visible'); }
+function copyDraft() {
+  navigator.clipboard.writeText(document.getElementById('draftText').textContent).then(function() {
+    var btn = document.querySelector('.draft-copy');
+    btn.textContent = 'Copied!';
+    btn.style.background = '#22c55e';
+    setTimeout(function(){ btn.textContent = 'Copy to clipboard'; btn.style.background = '#081b33'; }, 2000);
+  });
+}
+setInterval(function(){
+  if (allGames.filter(function(g){ return g.status.abstractGameState==='Live'; }).length > 0) loadGames();
+}, 300000);
+</script>
+</body>
+</html>
